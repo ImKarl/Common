@@ -1,6 +1,9 @@
 package cn.imkarl.core.common.json
 
-import com.google.gson.*
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonElement
 import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
 
@@ -17,47 +20,50 @@ object JsonUtils {
     fun createGsonBuilder(): GsonBuilder {
         return GsonBuilder()
 
-                .addSerializationExclusionStrategy(object : ExclusionStrategy {
-                    override fun shouldSkipField(f: FieldAttributes?): Boolean {
-                        f?.getAnnotation(IgnoreSerialize::class.java)?.let {
-                            // 忽略该字段
-                            return true
-                        }
-                        return false
+            // 排除字段
+            .addFieldExclusionStrategy { field, isSerialize ->
+                field.getAnnotation(Exclusion::class.java)?.let { exclusion ->
+                    if (isSerialize) {
+                        exclusion.serialize
+                    } else {
+                        exclusion.deserialize
                     }
-
-                    override fun shouldSkipClass(clazz: Class<*>?): Boolean {
-                        clazz?.getAnnotation(IgnoreSerialize::class.java)?.let {
-                            // 忽略该类
-                            return true
-                        }
-                        return false
+                } ?: false
+            }
+            // 排除类
+            .addClassExclusionStrategy { clazz, isSerialize ->
+                clazz.getAnnotation(Exclusion::class.java)?.let { exclusion ->
+                    if (isSerialize) {
+                        exclusion.serialize
+                    } else {
+                        exclusion.deserialize
                     }
-                })
+                } ?: false
+            }
 
-                .registerTypeAdapter(Boolean::class.java, JsonDeserializer<Boolean> { json, _, _ ->
-                    if (!json.isJsonPrimitive) {
-                        return@JsonDeserializer false
-                    }
+            .registerTypeAdapter(Boolean::class.java, JsonDeserializer<Boolean> { json, _, _ ->
+                if (!json.isJsonPrimitive) {
+                    return@JsonDeserializer false
+                }
 
-                    return@JsonDeserializer json.asJsonPrimitive.let {
-                        when {
-                            it.isBoolean -> it.asBoolean
-                            it.isNumber -> it.asNumber.toDouble().toInt() == 1
-                            it.isString -> {
-                                val str = it.asString
-                                var result: Boolean
-                                try {
-                                    result = str.toDouble().toInt() == 1
-                                } catch (e: Exception) {
-                                    result = str?.toBoolean() ?: false
-                                }
-                                result
+                return@JsonDeserializer json.asJsonPrimitive.let {
+                    when {
+                        it.isBoolean -> it.asBoolean
+                        it.isNumber -> it.asNumber.toDouble().toInt() == 1
+                        it.isString -> {
+                            val str = it.asString
+                            var result: Boolean
+                            try {
+                                result = str.toDouble().toInt() == 1
+                            } catch (e: Exception) {
+                                result = str?.toBoolean() ?: false
                             }
-                            else -> false
+                            result
                         }
+                        else -> false
                     }
-                })
+                }
+            })
     }
 
     @JvmStatic
@@ -73,7 +79,7 @@ object JsonUtils {
         if (json == null) {
             return null
         }
-        return fromJson(json, object: TypeToken<T>() {})
+        return fromJson(json, object : TypeToken<T>() {})
     }
 
     @JvmStatic
@@ -89,7 +95,7 @@ object JsonUtils {
         if (json == null) {
             return null
         }
-        return fromJson(json, object: TypeToken<T>() {})
+        return fromJson(json, object : TypeToken<T>() {})
     }
 
     @JvmStatic
